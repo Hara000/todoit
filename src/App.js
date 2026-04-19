@@ -51,7 +51,7 @@ function PantallaBienvenida({ accent, fontDisplay, fontUI, bgGrad, onContinuar }
     <div style={{
       minHeight: "100vh", background: bgGrad, position: "relative",
       display: "flex", alignItems: "center", justifyContent: "center",
-      padding: "52px 32px 40px", fontFamily: fontUI,
+      padding: "52px 32px 40px", fontFamily: fontDisplay,
     }}>
       <Grain opacity={0.35} />
       <div style={{ width: "100%", maxWidth: 360, position: "relative", zIndex: 1 }}>
@@ -170,7 +170,7 @@ function PantallaAgregar({ accent, fontDisplay, fontUI, bgGrad, onGuardar, onCer
   };
 
   return (
-    <div style={{ minHeight: "100vh", background: bgGrad, position: "relative", fontFamily: fontUI }}>
+    <div style={{ minHeight: "100vh", background: bgGrad, position: "relative", fontFamily: fontDisplay }}>
       <Grain opacity={0.35} />
       <div style={{ position: "relative", zIndex: 1, padding: "66px 22px 90px" }}>
         <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 18 }}>
@@ -274,7 +274,7 @@ function PantallaAgregar({ accent, fontDisplay, fontUI, bgGrad, onGuardar, onCer
 function PantallaDetalle({ accent, fontDisplay, fontUI, bgGrad, tarea, onCerrar, onToggle, onToggleSub, onEliminar }) {
   if (!tarea) return null;
   return (
-    <div style={{ minHeight: "100vh", background: bgGrad, position: "relative", fontFamily: fontUI }}>
+    <div style={{ minHeight: "100vh", background: bgGrad, position: "relative", fontFamily: fontDisplay }}>
       <Grain opacity={0.35} />
       <div style={{ position: "relative", zIndex: 1, padding: "66px 22px 80px" }}>
         <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 28 }}>
@@ -390,10 +390,51 @@ function PantallaDetalle({ accent, fontDisplay, fontUI, bgGrad, tarea, onCerrar,
 }
 
 // ── Hábitos ───────────────────────────────────────────────────────────────────
-function PantallaHabitos({ accent, fontDisplay, fontUI, bgGrad, tareas, onCerrar }) {
-  const habitos = tareas.filter(t => t.habit);
+function PantallaHabitos({ accent, fontDisplay, fontUI, bgGrad, habits, setHabits, onCerrar }) {
+  const [nuevoNombre, setNuevoNombre] = useState("");
+  const todayStr = new Date().toISOString().split('T')[0];
+
+  const computeStreak = (completedDates) => {
+    let streak = 0;
+    const d = new Date();
+    for (let i = 0; i < 365; i++) {
+      const s = d.toISOString().split('T')[0];
+      if (completedDates.includes(s)) { streak++; }
+      else if (i > 0) break;
+      d.setDate(d.getDate() - 1);
+    }
+    return streak;
+  };
+
+  const getLast28 = (completedDates) => {
+    return Array(28).fill(0).map((_, i) => {
+      const d = new Date();
+      d.setDate(d.getDate() - (27 - i));
+      return completedDates.includes(d.toISOString().split('T')[0]) ? 1 : 0;
+    });
+  };
+
+  const toggleToday = (id) => {
+    setHabits(habits.map(h =>
+      h.id === id
+        ? { ...h, completedDates: (h.completedDates || []).includes(todayStr)
+            ? (h.completedDates || []).filter(d => d !== todayStr)
+            : [...(h.completedDates || []), todayStr] }
+        : h
+    ));
+  };
+
+  const agregar = () => {
+    if (!nuevoNombre.trim()) return;
+    setHabits([...habits, {
+      id: Date.now(), name: nuevoNombre.trim(),
+      completedDates: [], createdAt: new Date().toISOString(),
+    }]);
+    setNuevoNombre("");
+  };
+
   return (
-    <div style={{ minHeight: "100vh", background: bgGrad, position: "relative", fontFamily: fontUI }}>
+    <div style={{ minHeight: "100vh", background: bgGrad, position: "relative", fontFamily: fontDisplay }}>
       <Grain opacity={0.35} />
       <div style={{ position: "relative", zIndex: 1, padding: "66px 22px 80px" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 18 }}>
@@ -414,55 +455,105 @@ function PantallaHabitos({ accent, fontDisplay, fontUI, bgGrad, tareas, onCerrar
           fontFamily: fontDisplay, fontSize: 34, fontWeight: 400,
           margin: "0 0 22px", letterSpacing: -0.5, color: P.ink,
         }}>Hábitos</h1>
-        {habitos.length === 0 ? (
+        {habits.length === 0 ? (
           <div style={{
             textAlign: "center", padding: "40px 20px",
             color: P.textSoft, fontSize: 14, opacity: 0.5, fontStyle: "italic",
           }}>
-            Todavía no tienes hábitos.<br/>Agrega una tarea y márcala como hábito.
+            Todavía no tienes hábitos.<br/>Agrega uno abajo.
           </div>
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: 22 }}>
-            {habitos.map(h => (
-              <div key={h.id} style={{
-                padding: "18px 20px", background: P.cardBg, borderRadius: 14,
-                border: `1px solid ${P.border}`, backdropFilter: "blur(12px)",
-              }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 12 }}>
-                  <div style={{ fontFamily: fontDisplay, fontSize: 18, fontWeight: 500, color: P.ink }}>{h.texto}</div>
-                  <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 11, color: accent, fontWeight: 600 }}>
-                    🔥 {h.streak || 0}d
+            {habits.map(h => {
+              const doneToday = (h.completedDates || []).includes(todayStr);
+              const streak = computeStreak(h.completedDates || []);
+              const heatmap = getLast28(h.completedDates || []);
+              return (
+                <div key={h.id} style={{
+                  padding: "18px 20px", background: P.cardBg, borderRadius: 14,
+                  border: `1px solid ${P.border}`, backdropFilter: "blur(12px)",
+                }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                      <button onClick={() => toggleToday(h.id)} style={{
+                        width: 22, height: 22, borderRadius: 11, flexShrink: 0,
+                        border: `1.5px solid ${doneToday ? accent : P.borderStrong}`,
+                        background: doneToday ? accent : "transparent",
+                        cursor: "pointer", display: "flex", alignItems: "center",
+                        justifyContent: "center", padding: 0, transition: "all 0.2s",
+                      }}>
+                        {doneToday && <svg width="11" height="11" viewBox="0 0 12 12">
+                          <path d="M2 6l3 3 5-6" stroke="white" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round"/>
+                        </svg>}
+                      </button>
+                      <div style={{
+                        fontFamily: fontDisplay, fontSize: 18, fontWeight: 500, color: P.ink,
+                        textDecoration: doneToday ? "line-through" : "none",
+                        textDecorationColor: accent, opacity: doneToday ? 0.6 : 1,
+                      }}>{h.name}</div>
+                    </div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                      <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 11, color: accent, fontWeight: 600 }}>
+                        🔥 {streak}d
+                      </div>
+                      <button onClick={() => setHabits(habits.filter(x => x.id !== h.id))} style={{
+                        background: "none", border: "none", color: P.textSoft,
+                        opacity: 0.2, cursor: "pointer", fontSize: 18,
+                        padding: "0 2px", lineHeight: 1,
+                      }}
+                        onMouseEnter={e => e.currentTarget.style.opacity = 0.6}
+                        onMouseLeave={e => e.currentTarget.style.opacity = 0.2}
+                      >×</button>
+                    </div>
+                  </div>
+                  <div style={{
+                    display: "grid", gridTemplateColumns: "repeat(7, 1fr)",
+                    gap: 6, marginBottom: 10, justifyItems: "center",
+                  }}>
+                    {heatmap.map((d, i) => (
+                      <div key={i} style={{
+                        width: 12, height: 12, borderRadius: 10,
+                        background: d ? accent : P.border,
+                        opacity: d ? (0.4 + (i / 28) * 0.6) : 0.5,
+                      }}/>
+                    ))}
+                  </div>
+                  <div style={{
+                    display: "flex", gap: 14, fontSize: 11, color: P.textSoft, opacity: 0.7,
+                    fontFamily: "'IBM Plex Mono', monospace", letterSpacing: 0.3,
+                  }}>
+                    <span>racha actual · {streak}d</span>
+                    <span>· 28 días</span>
                   </div>
                 </div>
-                <div style={{
-                  display: "grid", gridTemplateColumns: "repeat(7, 1fr)",
-                  gap: 6, marginBottom: 10, justifyItems: "center",
-                }}>
-                  {(h.history || Array(28).fill(0)).slice(-28).map((d, i) => (
-                    <div key={i} style={{
-                      width: 12, height: 12, borderRadius: 10,
-                      background: d ? accent : P.border,
-                      opacity: d ? (0.4 + (i / 28) * 0.6) : 0.5,
-                    }}/>
-                  ))}
-                </div>
-                <div style={{
-                  display: "flex", gap: 14, fontSize: 11, color: P.textSoft, opacity: 0.7,
-                  fontFamily: "'IBM Plex Mono', monospace", letterSpacing: 0.3,
-                }}>
-                  <span>mejor racha · {h.bestStreak || 0}d</span>
-                  <span>· 28 días</span>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
-        <button style={{
-          marginTop: 18, width: "100%", padding: "14px", borderRadius: 14,
-          background: "transparent", border: `1.5px dashed ${P.borderStrong}`,
-          color: P.textSoft, fontFamily: fontUI, fontSize: 13,
-          cursor: "pointer", opacity: 0.7,
-        }}>+ Nuevo hábito</button>
+        <div style={{ marginTop: 18, display: "flex", gap: 10 }}>
+          <input
+            value={nuevoNombre}
+            onChange={e => setNuevoNombre(e.target.value)}
+            onKeyDown={e => e.key === "Enter" && agregar()}
+            placeholder="Nombre del hábito..."
+            style={{
+              flex: 1, padding: "12px 16px", fontSize: 14,
+              fontFamily: fontDisplay, background: P.cardBg,
+              border: `1.5px dashed ${P.borderStrong}`,
+              borderRadius: 14, color: P.ink, outline: "none",
+              backdropFilter: "blur(14px)", fontStyle: "italic",
+            }}
+            onFocus={e => { e.target.style.borderColor = accent; e.target.style.fontStyle = "normal"; }}
+            onBlur={e => { e.target.style.borderColor = P.borderStrong; if (!nuevoNombre) e.target.style.fontStyle = "italic"; }}
+          />
+          <button onClick={agregar} style={{
+            width: 44, height: 44, borderRadius: 14, flexShrink: 0,
+            background: accent, color: "white", border: "none",
+            fontSize: 22, cursor: "pointer",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            boxShadow: `0 4px 14px ${accent}44`,
+          }}>+</button>
+        </div>
       </div>
     </div>
   );
@@ -473,7 +564,7 @@ function GaleriaFondos({ accent, fontDisplay, fontUI, bgGrad, bgIndex, onSelect,
   const [cat, setCat] = useState("Populares");
   const CATS = ["Populares", "Cálidos", "Fríos", "Neutros"];
   return (
-    <div style={{ minHeight: "100vh", background: bgGrad, position: "relative", fontFamily: fontUI }}>
+    <div style={{ minHeight: "100vh", background: bgGrad, position: "relative", fontFamily: fontDisplay }}>
       <Grain opacity={0.35} />
       <div style={{ position: "relative", zIndex: 1, padding: "66px 22px 60px" }}>
         <div style={{ marginBottom: 8 }}>
@@ -556,13 +647,14 @@ function GaleriaFondos({ accent, fontDisplay, fontUI, bgGrad, bgIndex, onSelect,
 }
 
 // ── Home ──────────────────────────────────────────────────────────────────────
-function PantallaHome({ accent, fontDisplay, fontUI, bgGrad, nombre, tareas, setTareas, fontIndex, setFontIndex, onAbrirFondos, onAbrirHabitos, onAbrirAgregar, onAbrirDetalle, onEditarNombre }) {
+function PantallaHome({ accent, fontDisplay, fontUI, bgGrad, nombre, tareas, setTareas, habits, setHabits, fontIndex, setFontIndex, onAbrirFondos, onAbrirHabitos, onAbrirAgregar, onAbrirDetalle, onEditarNombre }) {
   const [filter, setFilter] = useState("hoy");
   const [nuevaTarea, setNuevaTarea] = useState("");
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => { setTimeout(() => setMounted(true), 80); }, []);
 
+  const todayStr = new Date().toISOString().split('T')[0];
   const hora = new Date().getHours();
   const saludo = hora < 12 ? "Buenos días" : hora < 19 ? "Buenas tardes" : "Buenas noches";
   const hoy = new Date();
@@ -570,15 +662,22 @@ function PantallaHome({ accent, fontDisplay, fontUI, bgGrad, nombre, tareas, set
   const meses = ["enero","febrero","marzo","abril","mayo","junio","julio","agosto","septiembre","octubre","noviembre","diciembre"];
   const fechaLabel = `${diasSemana[hoy.getDay()]} · ${hoy.getDate()} ${meses[hoy.getMonth()]}`.toUpperCase();
 
-  const filtradas = tareas.filter(t => {
-    if (filter === "hábitos") return t.habit;
-    if (filter === "semana") return t.fecha === "hoy" || t.fecha === "semana" || t.fecha === "mañana";
-    if (filter === "todas") return true;
-    return t.fecha === "hoy" || !t.fecha;
-  });
+  // Build combined list of tasks + habits based on active filter
+  const tareaItems = (() => {
+    if (filter === "hábitos") return [];
+    if (filter === "semana") return tareas.filter(t => t.fecha === "hoy" || t.fecha === "semana" || t.fecha === "mañana");
+    if (filter === "todas") return tareas;
+    return tareas.filter(t => t.fecha === "hoy" || !t.fecha);
+  })().map(t => ({ ...t, _type: "task" }));
 
-  const completadas = filtradas.filter(t => t.done).length;
-  const total = filtradas.length;
+  const habitItems = habits.map(h => ({ ...h, _type: "habit", completedToday: (h.completedDates || []).includes(todayStr) }));
+
+  const items = filter === "hábitos"
+    ? habitItems
+    : [...tareaItems, ...habitItems];
+
+  const completadas = items.filter(item => item._type === "task" ? item.done : item.completedToday).length;
+  const total = items.length;
   const pct = total > 0 ? Math.round((completadas / total) * 100) : 0;
   const circum = 2 * Math.PI * 17;
 
@@ -586,14 +685,30 @@ function PantallaHome({ accent, fontDisplay, fontUI, bgGrad, nombre, tareas, set
   const toggleSub = (tid, sid) => setTareas(tareas.map(t =>
     t.id === tid ? { ...t, subs: (t.subs || []).map(s => s.id === sid ? { ...s, done: !s.done } : s) } : t
   ));
+  const toggleHabitToday = (id) => {
+    setHabits(habits.map(h =>
+      h.id === id
+        ? { ...h, completedDates: (h.completedDates || []).includes(todayStr)
+            ? (h.completedDates || []).filter(d => d !== todayStr)
+            : [...(h.completedDates || []), todayStr] }
+        : h
+    ));
+  };
   const agregarRapido = () => {
     if (!nuevaTarea.trim()) return;
-    setTareas([...tareas, {
-      id: Date.now(), texto: nuevaTarea.trim(), done: false,
-      priority: "media", fecha: "hoy", hora: null, categoria: "personal",
-      recurrencia: "nunca", habit: false, streak: 0, bestStreak: 0,
-      history: Array(28).fill(0), subs: [],
-    }]);
+    if (filter === "hábitos") {
+      setHabits([...habits, {
+        id: Date.now(), name: nuevaTarea.trim(),
+        completedDates: [], createdAt: new Date().toISOString(),
+      }]);
+    } else {
+      setTareas([...tareas, {
+        id: Date.now(), texto: nuevaTarea.trim(), done: false,
+        priority: "media", fecha: "hoy", hora: null, categoria: "personal",
+        recurrencia: "nunca", habit: false, streak: 0, bestStreak: 0,
+        history: Array(28).fill(0), subs: [],
+      }]);
+    }
     setNuevaTarea("");
   };
 
@@ -601,7 +716,7 @@ function PantallaHome({ accent, fontDisplay, fontUI, bgGrad, nombre, tareas, set
 
   return (
     <div style={{
-      minHeight: "100vh", background: bgGrad, position: "relative", fontFamily: fontUI,
+      minHeight: "100vh", background: bgGrad, position: "relative", fontFamily: fontDisplay,
       opacity: mounted ? 1 : 0, transform: mounted ? "translateY(0)" : "translateY(20px)",
       transition: "opacity 0.6s ease, transform 0.6s ease",
     }}>
@@ -634,7 +749,7 @@ function PantallaHome({ accent, fontDisplay, fontUI, bgGrad, nombre, tareas, set
           </h1>
           <p style={{ fontSize: 14, color: P.textSoft, margin: "10px 0 0", opacity: 0.85 }}>
             {total === 0
-              ? "Estas son tus tareas de hoy"
+              ? (filter === "hábitos" ? "Agrega tu primer hábito abajo" : "Estas son tus tareas de hoy")
               : completadas === total
               ? "✨ Todo listo por hoy"
               : `${total - completadas} cosas por delante. Un paso a la vez.`}
@@ -686,56 +801,50 @@ function PantallaHome({ accent, fontDisplay, fontUI, bgGrad, nombre, tareas, set
           ))}
         </div>
 
-        {/* Lista de tareas */}
+        {/* Lista de tareas + hábitos */}
         <div style={{ display: "flex", flexDirection: "column" }}>
-          {filtradas.length === 0 ? (
+          {items.length === 0 ? (
             <div style={{
               textAlign: "center", padding: "28px 20px",
               color: P.textSoft, fontSize: 14, fontStyle: "italic", opacity: 0.4,
             }}>
-              {filter === "hábitos" ? "No tienes hábitos todavía" : "No hay tareas aquí"}
+              {filter === "hábitos" ? "Agrega tu primer hábito abajo ↓" : "No hay tareas aquí"}
             </div>
-          ) : filtradas.map(t => (
-            <div key={t.id} style={{
+          ) : items.map(item => item._type === "task" ? (
+            <div key={item.id} style={{
               padding: "14px 4px", borderBottom: `1px solid ${P.border}`,
-              opacity: t.done ? 0.55 : 1, transition: "opacity 0.25s",
+              opacity: item.done ? 0.55 : 1, transition: "opacity 0.25s",
             }}>
               <div style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
-                <button onClick={() => toggle(t.id)} style={{
-                  width: 20, height: 20, borderRadius: t.habit ? 10 : 5,
-                  border: `1.5px solid ${t.done ? accent : P.borderStrong}`,
-                  background: t.done ? accent : "transparent",
+                <button onClick={() => toggle(item.id)} style={{
+                  width: 20, height: 20, borderRadius: 5,
+                  border: `1.5px solid ${item.done ? accent : P.borderStrong}`,
+                  background: item.done ? accent : "transparent",
                   cursor: "pointer", flexShrink: 0, marginTop: 2,
                   display: "flex", alignItems: "center", justifyContent: "center",
                   padding: 0, transition: "all 0.2s",
                 }}>
-                  {t.done && <svg width="11" height="11" viewBox="0 0 12 12">
+                  {item.done && <svg width="11" height="11" viewBox="0 0 12 12">
                     <path d="M2 6l3 3 5-6" stroke="white" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round"/>
                   </svg>}
                 </button>
-                <div style={{ flex: 1, cursor: "pointer" }} onClick={() => onAbrirDetalle(t)}>
+                <div style={{ flex: 1, cursor: "pointer" }} onClick={() => onAbrirDetalle(item)}>
                   <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    <span style={{ width: 6, height: 6, borderRadius: 10, background: dotColor(t.priority), flexShrink: 0, display: "inline-block" }}/>
+                    <span style={{ width: 6, height: 6, borderRadius: 10, background: dotColor(item.priority), flexShrink: 0, display: "inline-block" }}/>
                     <span style={{
                       fontSize: 15, fontWeight: 400, color: P.ink,
-                      textDecoration: t.done ? "line-through" : "none",
+                      textDecoration: item.done ? "line-through" : "none",
                       textDecorationColor: accent, textDecorationThickness: "1px",
-                    }}>{t.texto}</span>
-                    {t.habit && <span style={{
-                      fontFamily: "'IBM Plex Mono', monospace", fontSize: 9,
-                      letterSpacing: 1.2, textTransform: "uppercase",
-                      color: P.textSoft, opacity: 0.6,
-                      padding: "2px 6px", border: `1px solid ${P.border}`, borderRadius: 4,
-                    }}>hábito</span>}
+                    }}>{item.texto}</span>
                   </div>
-                  {t.hora && <div style={{
+                  {item.hora && <div style={{
                     fontFamily: "'IBM Plex Mono', monospace", fontSize: 11,
                     color: P.textSoft, opacity: 0.6, marginTop: 4, marginLeft: 14,
-                  }}>{t.hora}</div>}
-                  {(t.subs || []).length > 0 && (
+                  }}>{item.hora}</div>}
+                  {(item.subs || []).length > 0 && (
                     <div style={{ marginTop: 8, marginLeft: 14, display: "flex", flexDirection: "column", gap: 6 }}>
-                      {(t.subs || []).map(s => (
-                        <div key={s.id} onClick={e => { e.stopPropagation(); toggleSub(t.id, s.id); }}
+                      {(item.subs || []).map(s => (
+                        <div key={s.id} onClick={e => { e.stopPropagation(); toggleSub(item.id, s.id); }}
                           style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }}>
                           <span style={{ color: accent, opacity: 0.5, fontSize: 12 }}>—</span>
                           <span style={{
@@ -748,7 +857,49 @@ function PantallaHome({ accent, fontDisplay, fontUI, bgGrad, nombre, tareas, set
                     </div>
                   )}
                 </div>
-                <button onClick={() => setTareas(tareas.filter(x => x.id !== t.id))} style={{
+                <button onClick={() => setTareas(tareas.filter(x => x.id !== item.id))} style={{
+                  background: "none", border: "none", color: P.textSoft,
+                  opacity: 0.2, cursor: "pointer", fontSize: 18,
+                  padding: "0 2px", lineHeight: 1, flexShrink: 0,
+                }}
+                  onMouseEnter={e => e.currentTarget.style.opacity = 0.6}
+                  onMouseLeave={e => e.currentTarget.style.opacity = 0.2}
+                >×</button>
+              </div>
+            </div>
+          ) : (
+            // Hábito
+            <div key={item.id} style={{
+              padding: "14px 4px", borderBottom: `1px solid ${P.border}`,
+              opacity: item.completedToday ? 0.55 : 1, transition: "opacity 0.25s",
+            }}>
+              <div style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
+                <button onClick={() => toggleHabitToday(item.id)} style={{
+                  width: 20, height: 20, borderRadius: 10,
+                  border: `1.5px solid ${item.completedToday ? accent : P.borderStrong}`,
+                  background: item.completedToday ? accent : "transparent",
+                  cursor: "pointer", flexShrink: 0, marginTop: 2,
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  padding: 0, transition: "all 0.2s",
+                }}>
+                  {item.completedToday && <svg width="11" height="11" viewBox="0 0 12 12">
+                    <path d="M2 6l3 3 5-6" stroke="white" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>}
+                </button>
+                <div style={{ flex: 1, display: "flex", alignItems: "center", gap: 8 }}>
+                  <span style={{
+                    fontSize: 15, fontWeight: 400, color: P.ink,
+                    textDecoration: item.completedToday ? "line-through" : "none",
+                    textDecorationColor: accent, textDecorationThickness: "1px",
+                  }}>{item.name}</span>
+                  <span style={{
+                    fontFamily: "'IBM Plex Mono', monospace", fontSize: 9,
+                    letterSpacing: 1.2, textTransform: "uppercase",
+                    color: P.textSoft, opacity: 0.6,
+                    padding: "2px 6px", border: `1px solid ${P.border}`, borderRadius: 4,
+                  }}>hábito</span>
+                </div>
+                <button onClick={() => setHabits(habits.filter(x => x.id !== item.id))} style={{
                   background: "none", border: "none", color: P.textSoft,
                   opacity: 0.2, cursor: "pointer", fontSize: 18,
                   padding: "0 2px", lineHeight: 1, flexShrink: 0,
@@ -767,7 +918,7 @@ function PantallaHome({ accent, fontDisplay, fontUI, bgGrad, nombre, tareas, set
             value={nuevaTarea}
             onChange={e => setNuevaTarea(e.target.value)}
             onKeyDown={e => e.key === "Enter" && agregarRapido()}
-            placeholder="Agregar una tarea nueva..."
+            placeholder={filter === "hábitos" ? "Agregar un hábito nuevo..." : "Agregar una tarea nueva..."}
             style={{
               flex: 1, padding: "12px 16px", fontSize: 14,
               fontFamily: fontUI, background: P.cardBg,
@@ -869,6 +1020,12 @@ export default function App() {
   const [fontIndex, setFontIndex] = useState(() => parseInt(localStorage.getItem("fontIndex") || "1", 10));
   const [bgIndex, setBgIndex] = useState(() => parseInt(localStorage.getItem("bgIndex") || "1", 10));
   const [accent] = useState(() => localStorage.getItem("accent") || "#3A2A1C");
+  const [habits, setHabits] = useState(() => {
+    try {
+      const raw = localStorage.getItem("habits");
+      return raw ? JSON.parse(raw) : [];
+    } catch { return []; }
+  });
   const [tareaSeleccionada, setTareaSeleccionada] = useState(null);
   const [editandoNombre, setEditandoNombre] = useState(false);
 
@@ -876,6 +1033,7 @@ export default function App() {
   useEffect(() => { localStorage.setItem("nombre", nombre); }, [nombre]);
   useEffect(() => { localStorage.setItem("fontIndex", fontIndex); }, [fontIndex]);
   useEffect(() => { localStorage.setItem("bgIndex", bgIndex); }, [bgIndex]);
+  useEffect(() => { localStorage.setItem("habits", JSON.stringify(habits)); }, [habits]);
 
   useEffect(() => {
     const link = document.createElement("link");
@@ -961,7 +1119,8 @@ export default function App() {
     return (
       <PantallaHabitos
         {...tokens}
-        tareas={tareas}
+        habits={habits}
+        setHabits={setHabits}
         onCerrar={() => setPantalla("home")}
       />
     );
@@ -984,6 +1143,8 @@ export default function App() {
       nombre={nombre}
       tareas={tareas}
       setTareas={setTareas}
+      habits={habits}
+      setHabits={setHabits}
       fontIndex={fontIndex}
       setFontIndex={setFontIndex}
       onAbrirFondos={() => setPantalla("fondos")}
